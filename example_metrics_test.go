@@ -23,8 +23,8 @@ type MockMetricsData struct {
 
 type MockMetricsListener struct{}
 
-func (m MockMetricsListener) Listen() []queue.Job {
-	return queue.From(MockMetricsData{})
+func (m MockMetricsListener) Listen() queue.Job {
+	return queue.JobFrom(MockMetricsData{})
 }
 
 func (m MockMetricsListener) Process(_ context.Context, Job queue.Job) error {
@@ -51,7 +51,7 @@ func bootstrapMetrics() *core.C {
 				Namespace: appName.String(),
 				Subsystem: env.String(),
 				Name:      "queue_length",
-				Help:      "The gauge Of queue length",
+				Help:      "The gauge JobFrom queue length",
 			}, []string{"name", "channel"},
 		)
 	}})
@@ -89,7 +89,7 @@ func Example_metrics() {
 		dispatcher.Subscribe(MockMetricsListener{})
 
 		// Trigger an Job
-		evt := queue.Of(MockMetricsData{Value: "hello world"})
+		evt := queue.JobFrom(MockMetricsData{Value: "hello world"})
 		_ = dispatcher.Dispatch(context.Background(), queue.Adjust(evt))
 	})
 

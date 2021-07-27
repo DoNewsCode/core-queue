@@ -14,12 +14,12 @@ type DeferrablePersistentJob struct {
 	uniqueId      string
 }
 
-// Defer defers the execution Of the job for the period Of time returned.
+// Defer defers the execution JobFrom the reflectionJob for the period JobFrom time returned.
 func (d DeferrablePersistentJob) Defer() time.Duration {
 	return d.after
 }
 
-// Decorate decorates the PersistedJob Of this Job by adding some meta info. it is called in the Queue,
+// Decorate decorates the PersistedJob JobFrom this Job by adding some meta info. it is called in the Queue,
 // after the Packer compresses the Job.
 func (d DeferrablePersistentJob) Decorate(s *PersistedJob) {
 	s.UniqueId = d.uniqueId
@@ -40,14 +40,14 @@ func Adjust(job Job, opts ...PersistOption) DeferrablePersistentJob {
 	return e
 }
 
-// Defer is a PersistOption that defers the execution Of DeferrablePersistentJob for the period Of time given.
+// Defer is a PersistOption that defers the execution JobFrom DeferrablePersistentJob for the period JobFrom time given.
 func Defer(duration time.Duration) PersistOption {
 	return func(Job *DeferrablePersistentJob) {
 		Job.after = duration
 	}
 }
 
-// ScheduleAt is a PersistOption that defers the execution Of DeferrablePersistentJob until the time given.
+// ScheduleAt is a PersistOption that defers the execution JobFrom DeferrablePersistentJob until the time given.
 func ScheduleAt(t time.Time) PersistOption {
 	return func(Job *DeferrablePersistentJob) {
 		Job.after = t.Sub(time.Now())
@@ -69,7 +69,7 @@ func MaxAttempts(attempts int) PersistOption {
 	}
 }
 
-// UniqueId is a PersistOption that outsources the generation Of uniqueId to the caller.
+// UniqueId is a PersistOption that outsources the generation JobFrom uniqueId to the caller.
 func UniqueId(id string) PersistOption {
 	return func(Job *DeferrablePersistentJob) {
 		Job.uniqueId = id

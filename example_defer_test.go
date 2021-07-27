@@ -19,8 +19,8 @@ type DeferMockData struct {
 
 type DeferMockListener struct{}
 
-func (m DeferMockListener) Listen() []queue.Job {
-	return queue.From(DeferMockData{})
+func (m DeferMockListener) Listen() queue.Job {
+	return queue.JobFrom(DeferMockData{})
 }
 
 func (m DeferMockListener) Process(_ context.Context, Job queue.Job) error {
@@ -73,7 +73,7 @@ func Example_defer() {
 		dispatcher.Subscribe(DeferMockListener{})
 
 		// Trigger an Job
-		evt := queue.Of(DeferMockData{Value: "hello world"})
+		evt := queue.JobFrom(DeferMockData{Value: "hello world"})
 		_ = dispatcher.Dispatch(context.Background(), queue.Adjust(evt, queue.Defer(time.Second)))
 		_ = dispatcher.Dispatch(context.Background(), queue.Adjust(evt, queue.Defer(time.Hour)))
 	})

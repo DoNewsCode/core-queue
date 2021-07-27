@@ -22,8 +22,8 @@ type FaultyMockListener struct {
 	count int
 }
 
-func (m *FaultyMockListener) Listen() []queue.Job {
-	return queue.From(FaultyMockData{})
+func (m *FaultyMockListener) Listen() queue.Job {
+	return queue.JobFrom(FaultyMockData{})
 }
 
 func (m *FaultyMockListener) Process(_ context.Context, Job queue.Job) error {
@@ -82,7 +82,7 @@ func Example_faulty() {
 		dispatcher.Subscribe(&FaultyMockListener{})
 
 		// Trigger an Job
-		evt := queue.Of(FaultyMockData{Value: "hello world"})
+		evt := queue.JobFrom(FaultyMockData{Value: "hello world"})
 		_ = dispatcher.Dispatch(context.Background(), queue.Adjust(evt, queue.MaxAttempts(3)))
 	})
 

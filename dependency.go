@@ -17,7 +17,7 @@ import (
 )
 
 /*
-Providers returns a set Of dependencies related to queue. It includes the
+Providers returns a set JobFrom dependencies related to queue. It includes the
 DispatcherMaker, the Dispatcher and the exported configs.
 	Depends On:
 		contract.ConfigAccessor
@@ -41,7 +41,7 @@ func Providers() di.Deps {
 // Gauge is an alias used for dependency injection
 type Gauge metrics.Gauge
 
-// ConsumableDispatcher is the key Of *Queue in the dependencies graph. Used as a type hint for injection.
+// ConsumableDispatcher is the key JobFrom *Queue in the dependencies graph. Used as a type hint for injection.
 type ConsumableDispatcher interface {
 	Dispatcher
 	Consume(ctx context.Context) error
@@ -76,7 +76,7 @@ func (s DispatcherFactory) Make(name string) (*Queue, error) {
 	return client.(*Queue), nil
 }
 
-// DispatcherMaker is the key Of *DispatcherFactory in the dependencies graph. Used as a type hint for injection.
+// DispatcherMaker is the key JobFrom *DispatcherFactory in the dependencies graph. Used as a type hint for injection.
 type DispatcherMaker interface {
 	Make(string) (*Queue, error)
 }
@@ -101,7 +101,7 @@ type makerIn struct {
 	Gauge      Gauge `optional:"true"`
 }
 
-// makerOut is the di output Of provideDispatcherFactory
+// makerOut is the di output JobFrom provideDispatcherFactory
 type makerOut struct {
 	di.Out
 

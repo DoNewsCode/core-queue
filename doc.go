@@ -1,5 +1,5 @@
 // Package queue provides a deferrableDecorator queue implementation that
-// supports job retires and deferred dispatch.
+// supports reflectionJob retires and deferred dispatch.
 //
 // It is recommended to read documentation on the core package before getting started on the queue package.
 //
@@ -7,15 +7,15 @@
 //
 // Queues in go is not as prominent as in some other languages, since go excels
 // at handling concurrency. However, the deferrableDecorator queue can still offer some benefit
-// missing from the native mechanism, say go channels. The queued job won't be
+// missing from the native mechanism, say go channels. The queued reflectionJob won't be
 // lost even if the system shutdown. In other words, it means jobs can be retried
 // until success. Plus, it is also possible to queue the execution of a
-// particular job until a lengthy period of time. Useful when you need to
+// particular reflectionJob until a lengthy period of time. Useful when you need to
 // implement "send email after 30 days" type of Job handler.
 //
 // Simple Usage
 //
-// First and foremost we should create a job, waiting the queue to dispatch. A job can be any struct that implements the
+// First and foremost we should create a reflectionJob, waiting the queue to dispatch. A reflectionJob can be any struct that implements the
 // Job interface.
 //
 //  type Job interface {
@@ -23,14 +23,14 @@
 //		Data() interface{}
 //	}
 //
-// Although the object that implements the job interface can be dispatched
-// immediately, it only minimally describes the job's property . We can tune the
-// properties with the Adjust helper. For example, we want to run the job after 3 minutes with maximum 5 retries:
+// Although the object that implements the reflectionJob interface can be dispatched
+// immediately, it only minimally describes the reflectionJob's property . We can tune the
+// properties with the Adjust helper. For example, we want to run the reflectionJob after 3 minutes with maximum 5 retries:
 //
-//  newJob := queue.Adjust(job, queue.Defer(3 * time.Minute), queue.MaxAttempts(5))
+//  newJob := queue.Adjust(reflectionJob, queue.Defer(3 * time.Minute), queue.MaxAttempts(5))
 //
 // Like the Job package, you don't have to use this helper. Manually create a queueable Job by implementing this
-// interface on top Of the normal Job interface:
+// interface on top of the normal Job interface:
 //
 //  type deferrableDecorator interface {
 //    Defer() time.Duration
@@ -51,13 +51,13 @@
 //
 // Once the persisted Job are stored in the external storage, a goroutine should
 // consume them and pipe the reconstructed Job to the listeners. This is done by
-// calling the Consume method Of queue.Dispatcher
+// calling the Consume method JobFrom queue.Dispatcher
 //
 //  go dispatcher.Consume(context.Background())
 //
 // Note if a Job is retryable, it is your responsibility to ensure the
 // idempotency. Also, be aware if a persisted Job have many listeners, the Job is
-// up to retry when any Of the listeners fail.
+// up to retry when any JobFrom the listeners fail.
 //
 // Integrate
 //
@@ -70,7 +70,7 @@
 //      checkQueueLengthIntervalSecond: 15
 //
 // While manually constructing the queue.Dispatcher is absolutely feasible, users can use the bundled dependency provider
-// without breaking a sweat. Using this approach, the life cycle Of consumer goroutine will be managed
+// without breaking a sweat. Using this approach, the life cycle of consumer goroutine will be managed
 // automatically by the core.
 //
 //  var c *core.C
@@ -97,8 +97,8 @@
 //
 // Metrics
 //
-// To gain visibility on how the length Of the queue, inject a gauge into the core and alias it to queue.Gauge. The
-// queue length Of the all internal queues will be periodically reported to metrics collector (Presumably Prometheus).
+// To gain visibility on how the length of the queue, inject a gauge into the core and alias it to queue.Gauge. The
+// queue length of the all internal queues will be periodically reported to metrics collector (Presumably Prometheus).
 //
 //  c.provideDispatcherFactory(di.Deps{func(appName contract.AppName, env contract.Env) queue.Gauge {
 //    return prometheus.NewGaugeFrom(
@@ -106,7 +106,7 @@
 //        Namespace: appName.String(),
 //        Subsystem: env.String(),
 //        Owner:      "queue_length",
-//        Help:      "The gauge Of queue length",
+//        Help:      "The gauge of queue length",
 //      }, []string{"name", "channel"},
 //    )
 //  }})

@@ -5,22 +5,22 @@ import (
 )
 
 // Listen creates a functional listener in one line.
-func Listen(Jobs []Job, callback func(ctx context.Context, Job Job) error) ListenFunc {
+func Listen(job Job, callback func(ctx context.Context, job Job) error) ListenFunc {
 	return ListenFunc{
-		Jobs:     Jobs,
+		Job:      job,
 		callback: callback,
 	}
 }
 
 // ListenFunc is a listener implemented with a callback.
 type ListenFunc struct {
-	Jobs     []Job
+	Job      Job
 	callback func(ctx context.Context, Job Job) error
 }
 
 // Listen implement Handler
-func (f ListenFunc) Listen() []Job {
-	return f.Jobs
+func (f ListenFunc) Listen() Job {
+	return f.Job
 }
 
 // Process implements Handler

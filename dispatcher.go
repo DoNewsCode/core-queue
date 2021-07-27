@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Dispatcher is the Job registry that is able to send job to each Handler.
+// Dispatcher is the Job registry that is able to send reflectionJob to each Handler.
 type Dispatcher interface {
 	Dispatch(ctx context.Context, Job Job) error
 	Subscribe(listener Handler)
@@ -24,7 +24,9 @@ type Dispatcher interface {
 
 // Handler is the handler for Job.
 type Handler interface {
-	Listen() []Job
+	// Listen should return a Job instance with zero value. It tells the dispatcher what type of job this handler is expecting.
+	Listen() Job
+	// Process will be called when a job is ready from queue.
 	Process(ctx context.Context, Job Job) error
 }
 
@@ -67,12 +69,10 @@ func (d *SyncDispatcher) Subscribe(listener Handler) {
 	if d.registry == nil {
 		d.registry = make(map[string][]Handler)
 	}
-	for _, e := range listener.Listen() {
-		d.registry[e.Type()] = append(d.registry[e.Type()], listener)
-	}
+	d.registry[listener.Listen().Type()] = append(d.registry[listener.Listen().Type()], listener)
 }
 
-// Queue is an extension Of the embed dispatcher. It adds the deferrableDecorator Job feature.
+// Queue is an extension JobFrom the embed dispatcher. It adds the deferrableDecorator Job feature.
 type Queue struct {
 	logger                   log.Logger
 	driver                   Driver
@@ -97,7 +97,7 @@ func (d *Queue) Dispatch(ctx context.Context, e Job) error {
 		if err != nil {
 			return errors.Wrapf(err, "dispatch serialized %s failed", e.Type())
 		}
-		return d.base.Dispatch(ctx, Of(ptr.Elem().Interface()))
+		return d.base.Dispatch(ctx, adHocJob{t: e.Type(), d: ptr.Elem().Interface()})
 	}
 
 	if _, ok := e.(deferrableDecorator); !ok {
@@ -117,13 +117,11 @@ func (d *Queue) Dispatch(ctx context.Context, e Job) error {
 }
 
 // Subscribe subscribes an Job. See contract.Dispatcher.
-func (d *Queue) Subscribe(listener Handler) {
+func (d *Queue) Subscribe(handler Handler) {
 	d.rwLock.Lock()
-	for _, e := range listener.Listen() {
-		d.reflectTypes[e.Type()] = reflect.TypeOf(e.Data())
-	}
+	d.reflectTypes[handler.Listen().Type()] = reflect.TypeOf(handler.Listen().Data())
 	d.rwLock.Unlock()
-	d.base.Subscribe(listener)
+	d.base.Subscribe(handler)
 }
 
 // Consume starts the runner and blocks until context canceled or error occurred.
@@ -187,12 +185,12 @@ func (d *Queue) work(ctx context.Context, msg *PersistedJob) {
 	if err != nil {
 		if msg.Attempts < msg.MaxAttempts {
 			_ = level.Info(d.logger).Log("err", errors.Wrapf(err, "Job %s failed %d times, retrying", msg.Key, msg.Attempts))
-			_ = d.base.Dispatch(context.Background(), Of(RetryingJob{Err: err, Msg: msg}))
+			_ = d.base.Dispatch(context.Background(), JobFrom(RetryingJob{Err: err, Msg: msg}))
 			_ = d.driver.Retry(context.Background(), msg)
 			return
 		}
 		_ = level.Warn(d.logger).Log("err", errors.Wrapf(err, "Job %s failed after %d attempts, aborted", msg.Key, msg.MaxAttempts))
-		_ = d.base.Dispatch(context.Background(), Of(AbortedJob{Err: err, Msg: msg}))
+		_ = d.base.Dispatch(context.Background(), JobFrom(AbortedJob{Err: err, Msg: msg}))
 		_ = d.driver.Fail(context.Background(), msg)
 		return
 	}
@@ -223,7 +221,7 @@ func UseCodec(codec contract.Codec) func(*Queue) {
 	}
 }
 
-// UseLogger is an option for NewQueue that feeds the queue with a Logger Of choice.
+// UseLogger is an option for NewQueue that feeds the queue with a Logger JobFrom choice.
 func UseLogger(logger log.Logger) func(*Queue) {
 	return func(dispatcher *Queue) {
 		dispatcher.logger = logger
@@ -255,7 +253,7 @@ func UseDispatcher(dispatcher Dispatcher) func(*Queue) {
 
 // NewQueue wraps a Queue and returns a decorated Queue. The latter Queue now can send and
 // listen to "persisted" Jobs. Those persisted Jobs will guarantee at least one execution, as they are stored in an
-// external storage and won't be released until the Queue acknowledges the end Of execution.
+// external storage and won't be released until the Queue acknowledges the end JobFrom execution.
 func NewQueue(driver Driver, opts ...func(*Queue)) *Queue {
 	qd := Queue{
 		driver:       driver,

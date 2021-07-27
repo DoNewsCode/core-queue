@@ -19,7 +19,7 @@ import (
 type RedisDriver struct {
 	Logger        log.Logger            // Logger is an optional logger. By default a noop logger is used
 	RedisClient   redis.UniversalClient // RedisClient is used to communicate with redis
-	ChannelConfig ChannelConfig         // ChannelConfig holds the name Of redis keys for all queues.
+	ChannelConfig ChannelConfig         // ChannelConfig holds the name JobFrom redis keys for all queues.
 	PopTimeout    time.Duration         // PopTimeout is the BRPOP timeout. ie. How long the pop action will block at most.
 	Packer        contract.Codec        // Packer describes how to save the message in wire format
 	lock          sync.Mutex
@@ -51,7 +51,7 @@ func (r *RedisDriver) Push(ctx context.Context, message *PersistedJob, delay tim
 	return nil
 }
 
-// Pop pops the message out Of the queue. It uses BRPOP underneath, so effectively it blocks until a
+// Pop pops the message out JobFrom the queue. It uses BRPOP underneath, so effectively it blocks until a
 // message is available or a timeout is reached.
 func (r *RedisDriver) Pop(ctx context.Context) (*PersistedJob, error) {
 	r.populateDefaults()
@@ -121,7 +121,7 @@ func (r *RedisDriver) Fail(ctx context.Context, message *PersistedJob) error {
 // Reload put failed/timeout message back to the Waiting queue. If the temporary outage have been cleared,
 // messages can be tried again via Reload. Reload is not a normal retry.
 // It similarly gives otherwise dead messages one more chance,
-// but this chance is not subject to the limit Of MaxAttempts, nor does it reset the number Of time attempted.
+// but this chance is not subject to the limit JobFrom MaxAttempts, nor does it reset the number JobFrom time attempted.
 func (r *RedisDriver) Reload(ctx context.Context, channel string) (int64, error) {
 	r.populateDefaults()
 	if channel != r.ChannelConfig.Failed && channel != r.ChannelConfig.Timeout {
@@ -141,7 +141,7 @@ func (r *RedisDriver) Reload(ctx context.Context, channel string) (int64, error)
 	return count, nil
 }
 
-// Flush flushes a queue Of choice by deleting all its data. Use with caution.
+// Flush flushes a queue JobFrom choice by deleting all its data. Use with caution.
 func (r *RedisDriver) Flush(ctx context.Context, channel string) error {
 	r.populateDefaults()
 	_, err := r.RedisClient.Del(ctx, channel).Result()
@@ -188,7 +188,7 @@ func (r *RedisDriver) remove(ctx context.Context, channel string, data []byte) e
 	return nil
 }
 
-// Retry put the message back onto the delayed queue. The message will be tried after a period Of time specified
+// Retry put the message back onto the delayed queue. The message will be tried after a period JobFrom time specified
 // by Backoff. Note: if one listener failed, all listeners for this Job will have to be retried. Make sure
 // your listeners are idempotent as always.
 func (r *RedisDriver) Retry(ctx context.Context, message *PersistedJob) error {

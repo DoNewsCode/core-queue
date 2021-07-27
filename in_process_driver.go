@@ -10,10 +10,10 @@ import (
 
 // An item is something we manage in a priority queue.
 type item struct {
-	Job      *PersistedJob // The value Of the item; arbitrary.
-	priority time.Time     // The priority Of the item in the queue.
+	Job      *PersistedJob // The value JobFrom the item; arbitrary.
+	priority time.Time     // The priority JobFrom the item in the queue.
 	// The index is needed by update and is maintained by the heap.Interface methods.
-	index int // The index Of the item in the heap.
+	index int // The index JobFrom the item in the heap.
 }
 
 // A priorityQueue implements heap.Interface and holds *PersistedJob.

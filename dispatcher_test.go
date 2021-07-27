@@ -16,8 +16,8 @@ import (
 
 type MockListener func(ctx context.Context, Job Job) error
 
-func (m MockListener) Listen() []Job {
-	return From(MockJob{})
+func (m MockListener) Listen() Job {
+	return JobFrom(MockJob{})
 }
 
 func (m MockListener) Process(ctx context.Context, Job Job) error {
@@ -26,8 +26,8 @@ func (m MockListener) Process(ctx context.Context, Job Job) error {
 
 type RetryingListener func(ctx context.Context, Job Job) error
 
-func (m RetryingListener) Listen() []Job {
-	return From(RetryingJob{})
+func (m RetryingListener) Listen() Job {
+	return JobFrom(RetryingJob{})
 }
 
 func (m RetryingListener) Process(ctx context.Context, Job Job) error {
@@ -36,8 +36,8 @@ func (m RetryingListener) Process(ctx context.Context, Job Job) error {
 
 type AbortedListener func(ctx context.Context, Job Job) error
 
-func (m AbortedListener) Listen() []Job {
-	return From(AbortedJob{})
+func (m AbortedListener) Listen() Job {
+	return JobFrom(AbortedJob{})
 }
 
 func (m AbortedListener) Process(ctx context.Context, Job Job) error {
@@ -111,7 +111,7 @@ func TestDispatcher_work(t *testing.T) {
 	}{
 		{
 			"simple message",
-			Of(MockJob{Value: "hello"}),
+			JobFrom(MockJob{Value: "hello"}),
 			func(ctx context.Context, Job Job) error {
 				assert.IsType(t, MockJob{}, Job.Data())
 				assert.Equal(t, "hello", Job.Data().(MockJob).Value)
@@ -125,7 +125,7 @@ func TestDispatcher_work(t *testing.T) {
 		},
 		{
 			"retry message",
-			Of(MockJob{Value: "hello"}),
+			JobFrom(MockJob{Value: "hello"}),
 			func(ctx context.Context, Job Job) error {
 				assert.IsType(t, MockJob{}, Job.Data())
 				assert.Equal(t, "hello", Job.Data().(MockJob).Value)
@@ -139,7 +139,7 @@ func TestDispatcher_work(t *testing.T) {
 		},
 		{
 			"fail message",
-			Of(MockJob{Value: "hello"}),
+			JobFrom(MockJob{Value: "hello"}),
 			func(ctx context.Context, Job Job) error {
 				assert.IsType(t, MockJob{}, Job.Data())
 				assert.Equal(t, "hello", Job.Data().(MockJob).Value)
@@ -195,7 +195,7 @@ func TestDispatcher_Consume(t *testing.T) {
 	}{
 		{
 			"ordinary message",
-			Of(MockJob{Value: "hello"}),
+			JobFrom(MockJob{Value: "hello"}),
 			func(ctx context.Context, Job Job) error {
 				assert.IsType(t, MockJob{}, Job.Data())
 				assert.Equal(t, "hello", Job.Data().(MockJob).Value)
@@ -209,7 +209,7 @@ func TestDispatcher_Consume(t *testing.T) {
 		},
 		{
 			"persist message",
-			Adjust(Of(MockJob{Value: "hello"})),
+			Adjust(JobFrom(MockJob{Value: "hello"})),
 			func(ctx context.Context, Job Job) error {
 				assert.IsType(t, MockJob{}, Job.Data())
 				assert.Equal(t, "hello", Job.Data().(MockJob).Value)
@@ -223,7 +223,7 @@ func TestDispatcher_Consume(t *testing.T) {
 		},
 		{
 			"deferred message",
-			Adjust(Of(MockJob{Value: "hello", Called: new(bool)}), Defer(2*time.Second)),
+			Adjust(JobFrom(MockJob{Value: "hello", Called: new(bool)}), Defer(2*time.Second)),
 			func(ctx context.Context, Job Job) error {
 				called <- "deferred message"
 				return nil
@@ -241,7 +241,7 @@ func TestDispatcher_Consume(t *testing.T) {
 		},
 		{
 			"deferred message but called",
-			Adjust(Of(MockJob{Value: "hello", Called: new(bool)}), Defer(time.Second)),
+			Adjust(JobFrom(MockJob{Value: "hello", Called: new(bool)}), Defer(time.Second)),
 			func(ctx context.Context, Job Job) error {
 				called <- "deferred message but called"
 				return nil
@@ -257,7 +257,7 @@ func TestDispatcher_Consume(t *testing.T) {
 		},
 		{
 			"failed message",
-			Adjust(Of(MockJob{Value: "hello"})),
+			Adjust(JobFrom(MockJob{Value: "hello"})),
 			func(ctx context.Context, Job Job) error {
 				defer func() {
 					called <- "failed message"
@@ -275,7 +275,7 @@ func TestDispatcher_Consume(t *testing.T) {
 		},
 		{
 			"retry message",
-			Adjust(Of(MockJob{Value: "hello"}), MaxAttempts(2)),
+			Adjust(JobFrom(MockJob{Value: "hello"}), MaxAttempts(2)),
 			func(ctx context.Context, Job Job) error {
 				select {
 				case <-firstTry:
@@ -295,7 +295,7 @@ func TestDispatcher_Consume(t *testing.T) {
 		},
 		{
 			"reload message",
-			Adjust(Of(MockJob{Value: "hello"}), Timeout(time.Second)),
+			Adjust(JobFrom(MockJob{Value: "hello"}), Timeout(time.Second)),
 			func(ctx context.Context, Job Job) error {
 				called <- "reload message"
 				return errors.New("some err")

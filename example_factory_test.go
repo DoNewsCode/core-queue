@@ -19,8 +19,8 @@ type MockFactoryData struct {
 
 type MockFactoryListener struct{}
 
-func (m MockFactoryListener) Listen() []queue.Job {
-	return queue.From(MockFactoryData{})
+func (m MockFactoryListener) Listen() queue.Job {
+	return queue.JobFrom(MockFactoryData{})
 }
 
 func (m MockFactoryListener) Process(_ context.Context, Job queue.Job) error {
@@ -78,7 +78,7 @@ func Example_factory() {
 		dispatcher.Subscribe(MockFactoryListener{})
 
 		// Trigger an Job
-		evt := queue.Of(MockFactoryData{Value: "hello world"})
+		evt := queue.JobFrom(MockFactoryData{Value: "hello world"})
 		_ = dispatcher.Dispatch(context.Background(), queue.Adjust(evt))
 	})
 
