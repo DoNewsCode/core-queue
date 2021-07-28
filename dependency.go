@@ -3,9 +3,10 @@ package queue
 import (
 	"context"
 	"fmt"
-	"github.com/DoNewsCode/core/otredis"
 	"runtime"
 	"time"
+
+	"github.com/DoNewsCode/core/otredis"
 
 	"github.com/DoNewsCode/core/config"
 	"github.com/DoNewsCode/core/contract"

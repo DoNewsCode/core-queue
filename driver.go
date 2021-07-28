@@ -2,8 +2,9 @@ package queue
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // ErrEmpty means the queue is empty.

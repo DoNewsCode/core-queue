@@ -3,8 +3,9 @@ package queue
 import (
 	"bytes"
 	"encoding/gob"
-	"github.com/DoNewsCode/core/contract"
 	"reflect"
+
+	"github.com/DoNewsCode/core/contract"
 )
 
 var _ contract.Codec = gobCodec{}

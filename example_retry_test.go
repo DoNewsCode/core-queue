@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	queue "github.com/DoNewsCode/core-queue"
 	"time"
+
+	queue "github.com/DoNewsCode/core-queue"
 
 	"github.com/DoNewsCode/core"
 	"github.com/DoNewsCode/core/otredis"

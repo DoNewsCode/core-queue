@@ -3,15 +3,16 @@ package queue
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"runtime"
+	"sync"
+	"time"
+
 	"github.com/DoNewsCode/core/contract"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"golang.org/x/sync/errgroup"
-	"reflect"
-	"runtime"
-	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 )
@@ -246,7 +247,6 @@ func UseGauge(gauge metrics.Gauge, interval time.Duration) func(*Queue) {
 // UseDispatcher is an option for NewQueue to swap base dispatcher implementation
 func UseDispatcher(dispatcher Dispatcher) func(*Queue) {
 	return func(queue *Queue) {
-		queue.base = dispatcher
 		queue.base = dispatcher
 	}
 }
