@@ -38,4 +38,4 @@ jobs:
       uses: codecov/codecov-action@v2
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.txt
+        file: coverage.txt
