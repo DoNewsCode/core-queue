@@ -33,11 +33,11 @@ func TestProvideDispatcher(t *testing.T) {
 				5,
 			},
 		}},
-		Dispatcher: &SyncDispatcher{},
-		RedisMaker: maker{},
-		Logger:     log.NewNopLogger(),
-		AppName:    config.AppName("test"),
-		Env:        config.EnvTesting,
+		JobDispatcher: &SyncDispatcher{},
+		RedisMaker:    maker{},
+		Logger:        log.NewNopLogger(),
+		AppName:       config.AppName("test"),
+		Env:           config.EnvTesting,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, out.DispatcherFactory)
@@ -97,11 +97,11 @@ func TestProvideDispatcher_withDriver(t *testing.T) {
 				5,
 			},
 		}},
-		Dispatcher: &SyncDispatcher{},
-		Driver:     mockDriver{},
-		Logger:     log.NewNopLogger(),
-		AppName:    config.AppName("test"),
-		Env:        config.EnvTesting,
+		JobDispatcher: &SyncDispatcher{},
+		Driver:        mockDriver{},
+		Logger:        log.NewNopLogger(),
+		AppName:       config.AppName("test"),
+		Env:           config.EnvTesting,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, out.DispatcherFactory)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DoNewsCode/core/contract"
+	"github.com/DoNewsCode/core/events"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
@@ -17,17 +18,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Dispatcher is the Job registry that is able to send reflectionJob to each Handler.
-type Dispatcher interface {
+// JobDispatcher is the Job registry that is able to send reflectionJob to each Handler.
+type JobDispatcher interface {
 	Dispatch(ctx context.Context, Job Job) error
 	Subscribe(listener Handler)
 }
 
 // Handler is the handler for Job.
 type Handler interface {
-	// Listen should return a Job instance with zero value. It tells the dispatcher what type of job this handler is expecting.
+	// Listen should return a Job instance with zero value. It tells the dispatcher what type of jobDispatcher this handler is expecting.
 	Listen() Job
-	// Process will be called when a job is ready from queue.
+	// Process will be called when a jobDispatcher is ready from queue.
 	Process(ctx context.Context, Job Job) error
 }
 
@@ -78,9 +79,10 @@ type Queue struct {
 	logger                   log.Logger
 	driver                   Driver
 	codec                    contract.Codec
+	eventDispatcher          contract.Dispatcher
 	rwLock                   sync.RWMutex
 	reflectTypes             map[string]reflect.Type
-	base                     Dispatcher
+	jobDispatcher            JobDispatcher
 	parallelism              int
 	queueLengthGauge         metrics.Gauge
 	checkQueueLengthInterval time.Duration
@@ -98,7 +100,7 @@ func (d *Queue) Dispatch(ctx context.Context, e Job) error {
 		if err != nil {
 			return errors.Wrapf(err, "dispatch serialized %s failed", e.Type())
 		}
-		return d.base.Dispatch(ctx, adHocJob{t: e.Type(), d: ptr.Elem().Interface()})
+		return d.jobDispatcher.Dispatch(ctx, adHocJob{t: e.Type(), d: ptr.Elem().Interface()})
 	}
 
 	if _, ok := e.(deferrableDecorator); !ok {
@@ -122,7 +124,7 @@ func (d *Queue) Subscribe(handler Handler) {
 	d.rwLock.Lock()
 	d.reflectTypes[handler.Listen().Type()] = reflect.TypeOf(handler.Listen().Data())
 	d.rwLock.Unlock()
-	d.base.Subscribe(handler)
+	d.jobDispatcher.Subscribe(handler)
 }
 
 // Consume starts the runner and blocks until context canceled or error occurred.
@@ -186,12 +188,12 @@ func (d *Queue) work(ctx context.Context, msg *PersistedJob) {
 	if err != nil {
 		if msg.Attempts < msg.MaxAttempts {
 			_ = level.Info(d.logger).Log("err", errors.Wrapf(err, "Job %s failed %d times, retrying", msg.Key, msg.Attempts))
-			_ = d.base.Dispatch(context.Background(), JobFrom(RetryingJob{Err: err, Msg: msg}))
+			_ = d.eventDispatcher.Dispatch(context.Background(), BeforeRetry, BeforeRetryPayload{Err: err, Job: msg})
 			_ = d.driver.Retry(context.Background(), msg)
 			return
 		}
 		_ = level.Warn(d.logger).Log("err", errors.Wrapf(err, "Job %s failed after %d attempts, aborted", msg.Key, msg.MaxAttempts))
-		_ = d.base.Dispatch(context.Background(), JobFrom(AbortedJob{Err: err, Msg: msg}))
+		_ = d.eventDispatcher.Dispatch(context.Background(), BeforeAbort, BeforeAbortPayload{Err: err, Job: msg})
 		_ = d.driver.Fail(context.Background(), msg)
 		return
 	}
@@ -244,10 +246,17 @@ func UseGauge(gauge metrics.Gauge, interval time.Duration) func(*Queue) {
 	}
 }
 
-// UseDispatcher is an option for NewQueue to swap base dispatcher implementation
-func UseDispatcher(dispatcher Dispatcher) func(*Queue) {
+// UseJobDispatcher is an option for NewQueue to swap jobDispatcher dispatcher implementation
+func UseJobDispatcher(dispatcher JobDispatcher) func(*Queue) {
 	return func(queue *Queue) {
-		queue.base = dispatcher
+		queue.jobDispatcher = dispatcher
+	}
+}
+
+// UseEventDispatcher is an option for NewQueue to receive events such as fail and retry.
+func UseEventDispatcher(dispatcher contract.Dispatcher) func(*Queue) {
+	return func(queue *Queue) {
+		queue.eventDispatcher = dispatcher
 	}
 }
 
@@ -256,12 +265,13 @@ func UseDispatcher(dispatcher Dispatcher) func(*Queue) {
 // external storage and won't be released until the Queue acknowledges the end JobFrom execution.
 func NewQueue(driver Driver, opts ...func(*Queue)) *Queue {
 	qd := Queue{
-		driver:       driver,
-		codec:        gobCodec{},
-		rwLock:       sync.RWMutex{},
-		reflectTypes: make(map[string]reflect.Type),
-		base:         &SyncDispatcher{},
-		parallelism:  runtime.NumCPU(),
+		driver:          driver,
+		codec:           gobCodec{},
+		rwLock:          sync.RWMutex{},
+		reflectTypes:    make(map[string]reflect.Type),
+		jobDispatcher:   &SyncDispatcher{},
+		eventDispatcher: &events.SyncDispatcher{},
+		parallelism:     runtime.NumCPU(),
 	}
 	for _, f := range opts {
 		f(&qd)

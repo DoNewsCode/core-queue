@@ -41,7 +41,7 @@
 //
 // No matter how you create a persisted Job, to fire it, send it though a dispatcher. The normal dispatcher in the
 // Jobs package won't work, as a queue implementation is required. Luckily, it is deadly simple to convert a standard
-// dispatcher to a queue.Dispatcher.
+// dispatcher to a queue.JobDispatcher.
 //
 //  queueableDispatcher := queue.NewQueue(&queue.RedisDriver{})
 //  queueableDispatcher.dispatch(newJob)
@@ -51,13 +51,13 @@
 //
 // Once the persisted Job are stored in the external storage, a goroutine should
 // consume them and pipe the reconstructed Job to the listeners. This is done by
-// calling the Consume method JobFrom queue.Dispatcher
+// calling the Consume method JobFrom queue.JobDispatcher
 //
 //  go dispatcher.Consume(context.Background())
 //
 // Note if a Job is retryable, it is your responsibility to ensure the
 // idempotency. Also, be aware if a persisted Job have many listeners, the Job is
-// up to retry when any JobFrom the listeners fail.
+// up to retry when any of the listeners fail.
 //
 // Integrate
 //
@@ -69,7 +69,7 @@
 //      parallelism: 3
 //      checkQueueLengthIntervalSecond: 15
 //
-// While manually constructing the queue.Dispatcher is absolutely feasible, users can use the bundled dependency provider
+// While manually constructing the queue.JobDispatcher is absolutely feasible, users can use the bundled dependency provider
 // without breaking a sweat. Using this approach, the life cycle of consumer goroutine will be managed
 // automatically by the core.
 //
@@ -92,7 +92,7 @@
 //
 // Event-based Jobs
 //
-// When an attempt to execute the Job handler failed, two kinds of special event-based Job will be fired. If the failed Job can be
+// When an attempt to execute the Job handler failed, two kinds of special eventDispatcher-based Job will be fired. If the failed Job can be
 // retried, "queue.RetryingJob" will be fired. If not, "queue.AbortedJob" will be fired.
 //
 // Metrics

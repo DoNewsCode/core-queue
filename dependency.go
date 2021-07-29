@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/DoNewsCode/core/events"
 	"github.com/DoNewsCode/core/otredis"
 
 	"github.com/DoNewsCode/core/config"
@@ -19,7 +20,7 @@ import (
 
 /*
 Providers returns a set JobFrom dependencies related to queue. It includes the
-DispatcherMaker, the Dispatcher and the exported configs.
+DispatcherMaker, the JobDispatcher and the exported configs.
 	Depends On:
 		contract.ConfigAccessor
 		contract.Dispatcher
@@ -32,7 +33,7 @@ DispatcherMaker, the Dispatcher and the exported configs.
 	Provides:
 		DispatcherMaker
 		DispatcherFactory
-		Dispatcher
+		JobDispatcher
 		*Queue
 */
 func Providers() di.Deps {
@@ -44,7 +45,7 @@ type Gauge metrics.Gauge
 
 // ConsumableDispatcher is the key JobFrom *Queue in the dependencies graph. Used as a type hint for injection.
 type ConsumableDispatcher interface {
-	Dispatcher
+	JobDispatcher
 	Consume(ctx context.Context) error
 }
 
@@ -92,14 +93,15 @@ type configuration struct {
 type makerIn struct {
 	di.In
 
-	Conf       contract.ConfigAccessor
-	Dispatcher Dispatcher    `optional:"true"`
-	Driver     Driver        `optional:"true"`
-	RedisMaker otredis.Maker `optional:"true"`
-	Logger     log.Logger
-	AppName    contract.AppName
-	Env        contract.Env
-	Gauge      Gauge `optional:"true"`
+	Conf            contract.ConfigAccessor
+	JobDispatcher   JobDispatcher       `optional:"true"`
+	EventDispatcher contract.Dispatcher `optional:"true"`
+	Driver          Driver              `optional:"true"`
+	RedisMaker      otredis.Maker       `optional:"true"`
+	Logger          log.Logger
+	AppName         contract.AppName
+	Env             contract.Env
+	Gauge           Gauge `optional:"true"`
 }
 
 // makerOut is the di output JobFrom provideDispatcherFactory
@@ -137,8 +139,11 @@ func provideDispatcherFactory(p makerIn) (makerOut, error) {
 			conf = configuration{Parallelism: runtime.NumCPU(), CheckQueueLengthIntervalSecond: 0}
 		}
 
-		if p.Dispatcher == nil {
-			p.Dispatcher = &SyncDispatcher{}
+		if p.JobDispatcher == nil {
+			p.JobDispatcher = &SyncDispatcher{}
+		}
+		if p.EventDispatcher == nil {
+			p.EventDispatcher = &events.SyncDispatcher{}
 		}
 
 		if p.Gauge != nil {
@@ -173,7 +178,8 @@ func provideDispatcherFactory(p makerIn) (makerOut, error) {
 			UseLogger(p.Logger),
 			UseParallelism(conf.Parallelism),
 			UseGauge(p.Gauge, time.Duration(conf.CheckQueueLengthIntervalSecond)*time.Second),
-			UseDispatcher(p.Dispatcher),
+			UseJobDispatcher(p.JobDispatcher),
+			UseEventDispatcher(p.EventDispatcher),
 		)
 		return di.Pair{
 			Closer: nil,

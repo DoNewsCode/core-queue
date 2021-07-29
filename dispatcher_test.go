@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DoNewsCode/core/events"
 	"github.com/DoNewsCode/core/logging"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
@@ -24,24 +25,24 @@ func (m MockListener) Process(ctx context.Context, Job Job) error {
 	return m(ctx, Job)
 }
 
-type RetryingListener func(ctx context.Context, Job Job) error
+type RetryingListener func(ctx context.Context, payload interface{}) error
 
-func (m RetryingListener) Listen() Job {
-	return JobFrom(RetryingJob{})
+func (m RetryingListener) Listen() (topic interface{}) {
+	return BeforeRetry
 }
 
-func (m RetryingListener) Process(ctx context.Context, Job Job) error {
-	return m(ctx, Job)
+func (m RetryingListener) Process(ctx context.Context, payload interface{}) error {
+	return m(ctx, payload)
 }
 
-type AbortedListener func(ctx context.Context, Job Job) error
+type AbortedListener func(ctx context.Context, payload interface{}) error
 
-func (m AbortedListener) Listen() Job {
-	return JobFrom(AbortedJob{})
+func (m AbortedListener) Listen() (topic interface{}) {
+	return BeforeAbort
 }
 
-func (m AbortedListener) Process(ctx context.Context, Job Job) error {
-	return m(ctx, Job)
+func (m AbortedListener) Process(ctx context.Context, payload interface{}) error {
+	return m(ctx, payload)
 }
 
 type MockJob struct {
@@ -60,7 +61,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func setUp() *Queue {
+func setUp() (*Queue, *events.SyncDispatcher) {
 	envDefaultRedisAddrs, _ := getDefaultRedisAddrs()
 	s := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs: envDefaultRedisAddrs,
@@ -78,8 +79,9 @@ func setUp() *Queue {
 		PopTimeout: time.Second,
 		Packer:     gobCodec{},
 	}
-	dispatcher := NewQueue(&driver, UseLogger(logging.NewLogger("logfmt")))
-	return dispatcher
+	eventDispatcher := &events.SyncDispatcher{}
+	queue := NewQueue(&driver, UseLogger(logging.NewLogger("logfmt")), UseEventDispatcher(eventDispatcher))
+	return queue, eventDispatcher
 }
 
 func tearDown() {
@@ -157,20 +159,20 @@ func TestDispatcher_work(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			retries := 0
 			failed := 0
-			dispatcher := setUp()
+			queue, dispatcher := setUp()
 			defer tearDown()
-			dispatcher.Subscribe(c.ln)
-			dispatcher.Subscribe(RetryingListener(func(ctx context.Context, Job Job) error {
+			queue.Subscribe(c.ln)
+			dispatcher.Subscribe(RetryingListener(func(ctx context.Context, payload interface{}) error {
 				retries++
 				return nil
 			}))
-			dispatcher.Subscribe(AbortedListener(func(ctx context.Context, Job Job) error {
+			dispatcher.Subscribe(AbortedListener(func(ctx context.Context, Job interface{}) error {
 				failed++
 				return nil
 			}))
-			msg, err := dispatcher.codec.Marshal(c.value.Data())
+			msg, err := queue.codec.Marshal(c.value.Data())
 			assert.NoError(t, err)
-			dispatcher.work(context.Background(), &PersistedJob{
+			queue.work(context.Background(), &PersistedJob{
 				Key:         c.value.Type(),
 				Value:       msg,
 				MaxAttempts: c.maxAttempts,
@@ -182,7 +184,7 @@ func TestDispatcher_work(t *testing.T) {
 }
 
 func TestDispatcher_Consume(t *testing.T) {
-	consumer := setUp()
+	consumer, _ := setUp()
 	defer tearDown()
 
 	var firstTry = make(chan struct{}, 1)
@@ -313,16 +315,16 @@ func TestDispatcher_Consume(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			dispatcher := setUp()
+			queue, _ := setUp()
 			defer tearDown()
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			go dispatcher.Consume(ctx)
+			go queue.Consume(ctx)
 			go func() {
-				dispatcher.Subscribe(c.ln)
-				err := dispatcher.Dispatch(context.Background(), c.evt)
+				queue.Subscribe(c.ln)
+				err := queue.Dispatch(context.Background(), c.evt)
 				assert.NoError(t, err)
 			}()
 
