@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/DoNewsCode/core v0.7.4-0.20210728103415-429f88834ecc
 	github.com/go-kit/kit v0.11.0
-	github.com/go-redis/redis/v8 v8.11.2
+	github.com/go-redis/redis/v8 v8.11.3
 	github.com/knadh/koanf v1.2.1
 	github.com/oklog/run v1.1.0
 	github.com/pkg/errors v0.9.1
