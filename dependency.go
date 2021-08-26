@@ -81,6 +81,8 @@ type makerOut struct {
 
 func (d makerOut) ModuleSentinel() {}
 
+func (m makerOut) Module() interface{} { return m }
+
 // provideDispatcherFactory is a provider for *DispatcherFactory and *Queue.
 // It also provides an interface for each.
 func provideDispatcherFactory(p makerIn) (makerOut, error) {
