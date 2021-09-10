@@ -6,16 +6,16 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/DoNewsCode/core/events"
-	"github.com/DoNewsCode/core/otredis"
-
 	"github.com/DoNewsCode/core/config"
 	"github.com/DoNewsCode/core/contract"
 	"github.com/DoNewsCode/core/di"
+	"github.com/DoNewsCode/core/events"
+	"github.com/DoNewsCode/core/otredis"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/oklog/run"
+	"github.com/pkg/errors"
 )
 
 /*
@@ -36,8 +36,17 @@ DispatcherMaker, the JobDispatcher and the exported configs.
 		JobDispatcher
 		*Queue
 */
-func Providers() di.Deps {
-	return []interface{}{provideDispatcherFactory, provideConfig, provideDispatcher}
+func Providers(optionFunc ...ProvidersOptionFunc) di.Deps {
+	option := &providersOption{}
+	for _, f := range optionFunc {
+		f(option)
+	}
+	return []interface{}{
+		provideDispatcherFactory(option),
+		provideConfig,
+		provideDispatcher,
+		di.Bind(new(DispatcherFactory), new(DispatcherMaker)),
+	}
 }
 
 // Gauge is an alias used for dependency injection
@@ -62,21 +71,17 @@ type makerIn struct {
 	Conf            contract.ConfigAccessor
 	JobDispatcher   JobDispatcher       `optional:"true"`
 	EventDispatcher contract.Dispatcher `optional:"true"`
-	Driver          Driver              `optional:"true"`
-	RedisMaker      otredis.Maker       `optional:"true"`
 	Logger          log.Logger
 	AppName         contract.AppName
 	Env             contract.Env
-	Gauge           Gauge `optional:"true"`
+	Gauge           Gauge                `optional:"true"`
+	Populator       contract.DIPopulator `optional:"true"`
 }
 
 // makerOut is the di output JobFrom provideDispatcherFactory
 type makerOut struct {
 	di.Out
-
-	DispatcherMaker   DispatcherMaker
 	DispatcherFactory DispatcherFactory
-	ExportedConfig    []config.ExportedConfig `group:"config,flatten"`
 }
 
 func (d makerOut) ModuleSentinel() {}
@@ -85,86 +90,81 @@ func (m makerOut) Module() interface{} { return m }
 
 // provideDispatcherFactory is a provider for *DispatcherFactory and *Queue.
 // It also provides an interface for each.
-func provideDispatcherFactory(p makerIn) (makerOut, error) {
-	var (
-		err        error
-		queueConfs map[string]configuration
-	)
-	err = p.Conf.Unmarshal("queue", &queueConfs)
-	if err != nil {
-		level.Warn(p.Logger).Log("err", err)
+func provideDispatcherFactory(option *providersOption) func(p makerIn) (makerOut, error) {
+	if option.driverConstructor == nil {
+		option.driverConstructor = newDefaultDriver
 	}
-	factory := di.NewFactory(func(name string) (di.Pair, error) {
+	return func(p makerIn) (makerOut, error) {
 		var (
-			ok   bool
-			conf configuration
+			err        error
+			queueConfs map[string]configuration
 		)
-		p := p
-		if conf, ok = queueConfs[name]; !ok {
-			if name != "default" {
-				return di.Pair{}, fmt.Errorf("queue configuration %s not found", name)
+		err = p.Conf.Unmarshal("queue", &queueConfs)
+		if err != nil {
+			level.Warn(p.Logger).Log("err", err)
+		}
+		factory := di.NewFactory(func(name string) (di.Pair, error) {
+			var (
+				ok   bool
+				conf configuration
+			)
+			p := p
+			if conf, ok = queueConfs[name]; !ok {
+				if name != "default" {
+					return di.Pair{}, fmt.Errorf("queue configuration %s not found", name)
+				}
+				conf = configuration{Parallelism: runtime.NumCPU(), CheckQueueLengthIntervalSecond: 0}
 			}
-			conf = configuration{Parallelism: runtime.NumCPU(), CheckQueueLengthIntervalSecond: 0}
+
+			if p.JobDispatcher == nil {
+				p.JobDispatcher = &SyncDispatcher{}
+			}
+			if p.EventDispatcher == nil {
+				p.EventDispatcher = &events.SyncDispatcher{}
+			}
+
+			if p.Gauge != nil {
+				p.Gauge = p.Gauge.With("queue", name)
+			}
+
+			var driver = option.driver
+			if option.driver == nil {
+				driver, err = option.driverConstructor(DriverConstructorArgs{
+					Name:      "name",
+					Conf:      conf,
+					Logger:    p.Logger,
+					AppName:   p.AppName,
+					Env:       p.Env,
+					Populator: p.Populator,
+				})
+				if err != nil {
+					return di.Pair{}, err
+				}
+			}
+			queuedDispatcher := NewQueue(
+				driver,
+				UseLogger(p.Logger),
+				UseParallelism(conf.Parallelism),
+				UseGauge(p.Gauge, time.Duration(conf.CheckQueueLengthIntervalSecond)*time.Second),
+				UseJobDispatcher(p.JobDispatcher),
+				UseEventDispatcher(p.EventDispatcher),
+			)
+			return di.Pair{
+				Closer: nil,
+				Conn:   queuedDispatcher,
+			}, nil
+		})
+
+		// Queue must be created eagerly, so that the consumer goroutines can start on boot up.
+		for name := range queueConfs {
+			factory.Make(name)
 		}
 
-		if p.JobDispatcher == nil {
-			p.JobDispatcher = &SyncDispatcher{}
-		}
-		if p.EventDispatcher == nil {
-			p.EventDispatcher = &events.SyncDispatcher{}
-		}
-
-		if p.Gauge != nil {
-			p.Gauge = p.Gauge.With("queue", name)
-		}
-
-		if p.Driver == nil {
-			if p.RedisMaker == nil {
-				return di.Pair{}, fmt.Errorf("default redis client not found, please provide it or provide a queue.Driver")
-			}
-			if conf.RedisName == "" {
-				conf.RedisName = "default"
-			}
-			redisClient, err := p.RedisMaker.Make(conf.RedisName)
-			if err != nil {
-				return di.Pair{}, fmt.Errorf("failed to initiate redis driver: %w", err)
-			}
-			p.Driver = &RedisDriver{
-				Logger:      p.Logger,
-				RedisClient: redisClient,
-				ChannelConfig: ChannelConfig{
-					Delayed:  fmt.Sprintf("{%s:%s:%s}:delayed", p.AppName.String(), p.Env.String(), name),
-					Failed:   fmt.Sprintf("{%s:%s:%s}:failed", p.AppName.String(), p.Env.String(), name),
-					Reserved: fmt.Sprintf("{%s:%s:%s}:reserved", p.AppName.String(), p.Env.String(), name),
-					Waiting:  fmt.Sprintf("{%s:%s:%s}:waiting", p.AppName.String(), p.Env.String(), name),
-					Timeout:  fmt.Sprintf("{%s:%s:%s}:timeout", p.AppName.String(), p.Env.String(), name),
-				},
-			}
-		}
-		queuedDispatcher := NewQueue(
-			p.Driver,
-			UseLogger(p.Logger),
-			UseParallelism(conf.Parallelism),
-			UseGauge(p.Gauge, time.Duration(conf.CheckQueueLengthIntervalSecond)*time.Second),
-			UseJobDispatcher(p.JobDispatcher),
-			UseEventDispatcher(p.EventDispatcher),
-		)
-		return di.Pair{
-			Closer: nil,
-			Conn:   queuedDispatcher,
+		dispatcherFactory := DispatcherFactory{Factory: factory}
+		return makerOut{
+			DispatcherFactory: dispatcherFactory,
 		}, nil
-	})
-
-	// Queue must be created eagerly, so that the consumer goroutines can start on boot up.
-	for name := range queueConfs {
-		factory.Make(name)
 	}
-
-	dispatcherFactory := DispatcherFactory{Factory: factory}
-	return makerOut{
-		DispatcherFactory: dispatcherFactory,
-		DispatcherMaker:   dispatcherFactory,
-	}, nil
 }
 
 // ProvideRunGroup implements container.RunProvider.
@@ -182,6 +182,31 @@ func (d makerOut) ProvideRunGroup(group *run.Group) {
 			cancel()
 		})
 	}
+}
+
+func newDefaultDriver(args DriverConstructorArgs) (Driver, error) {
+	var maker otredis.Maker
+	if args.Populator == nil {
+		return nil, errors.New("the default driver requires setting the populator in DI container")
+	}
+	if err := args.Populator.Populate(&maker); err != nil {
+		return nil, fmt.Errorf("the default driver requires an otredis.Maker in DI container: %w", err)
+	}
+	client, err := maker.Make(args.Conf.RedisName)
+	if err != nil {
+		return nil, fmt.Errorf("the default driver requires the redis client called %s: %w", args.Conf.RedisName, err)
+	}
+	return &RedisDriver{
+		Logger:      args.Logger,
+		RedisClient: client,
+		ChannelConfig: ChannelConfig{
+			Delayed:  fmt.Sprintf("{%s:%s:%s}:delayed", args.AppName.String(), args.Env.String(), args.Name),
+			Failed:   fmt.Sprintf("{%s:%s:%s}:failed", args.AppName.String(), args.Env.String(), args.Name),
+			Reserved: fmt.Sprintf("{%s:%s:%s}:reserved", args.AppName.String(), args.Env.String(), args.Name),
+			Waiting:  fmt.Sprintf("{%s:%s:%s}:waiting", args.AppName.String(), args.Env.String(), args.Name),
+			Timeout:  fmt.Sprintf("{%s:%s:%s}:timeout", args.AppName.String(), args.Env.String(), args.Name),
+		},
+	}, nil
 }
 
 type dispatcherOut struct {

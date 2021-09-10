@@ -7,6 +7,7 @@ import (
 
 	"github.com/DoNewsCode/core/config"
 	"github.com/DoNewsCode/core/di"
+	"github.com/DoNewsCode/core/otredis"
 	"github.com/go-kit/kit/log"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
@@ -19,9 +20,16 @@ func (m maker) Make(name string) (redis.UniversalClient, error) {
 	return redis.NewUniversalClient(&redis.UniversalOptions{Addrs: envDefaultRedisAddrs}), nil
 }
 
+type populator struct{}
+
+func (p populator) Populate(target interface{}) error {
+	*(target.(*otredis.Maker)) = maker{}
+	return nil
+}
+
 func TestProvideDispatcher(t *testing.T) {
-	out, err := provideDispatcherFactory(makerIn{
-		Conf: config.MapAdapter{"queue": map[string]configuration{
+	out, err := provideDispatcherFactory(&providersOption{})(makerIn{
+		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]configuration{
 			"default": {
 				"default",
 				1,
@@ -32,20 +40,19 @@ func TestProvideDispatcher(t *testing.T) {
 				3,
 				5,
 			},
-		}},
+		}}),
 		JobDispatcher: &SyncDispatcher{},
-		RedisMaker:    maker{},
+		Populator:     populator{},
 		Logger:        log.NewNopLogger(),
 		AppName:       config.AppName("test"),
 		Env:           config.EnvTesting,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, out.DispatcherFactory)
-	assert.NotNil(t, out.DispatcherMaker)
-	def, err := out.DispatcherMaker.Make("alternative")
+	def, err := out.DispatcherFactory.Make("alternative")
 	assert.NoError(t, err)
 	assert.NotNil(t, def)
-	assert.Implements(t, (*di.Module)(nil), out)
+	assert.Implements(t, (*di.Modular)(nil), out)
 }
 
 type mockDriver struct {
@@ -84,8 +91,8 @@ func (m mockDriver) Retry(ctx context.Context, message *PersistedJob) error {
 }
 
 func TestProvideDispatcher_withDriver(t *testing.T) {
-	out, err := provideDispatcherFactory(makerIn{
-		Conf: config.MapAdapter{"queue": map[string]configuration{
+	out, err := provideDispatcherFactory(&providersOption{driver: mockDriver{}})(makerIn{
+		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]configuration{
 			"default": {
 				"default",
 				1,
@@ -96,20 +103,18 @@ func TestProvideDispatcher_withDriver(t *testing.T) {
 				3,
 				5,
 			},
-		}},
+		}}),
 		JobDispatcher: &SyncDispatcher{},
-		Driver:        mockDriver{},
 		Logger:        log.NewNopLogger(),
 		AppName:       config.AppName("test"),
 		Env:           config.EnvTesting,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, out.DispatcherFactory)
-	assert.NotNil(t, out.DispatcherMaker)
-	def, err := out.DispatcherMaker.Make("alternative")
+	def, err := out.DispatcherFactory.Make("alternative")
 	assert.NoError(t, err)
 	assert.NotNil(t, def)
-	assert.Implements(t, (*di.Module)(nil), out)
+	assert.Implements(t, (*di.Modular)(nil), out)
 }
 
 func TestProvideConfigs(t *testing.T) {
