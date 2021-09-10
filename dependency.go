@@ -115,7 +115,10 @@ func provideDispatcherFactory(option *providersOption) func(p makerIn) (makerOut
 				if name != "default" {
 					return di.Pair{}, fmt.Errorf("queue Configuration %s not found", name)
 				}
-				conf = Configuration{Parallelism: runtime.NumCPU(), CheckQueueLengthIntervalSecond: 0}
+				conf = Configuration{
+					Parallelism:                    runtime.NumCPU(),
+					CheckQueueLengthIntervalSecond: 0,
+				}
 			}
 
 			if p.JobDispatcher == nil {
@@ -131,14 +134,16 @@ func provideDispatcherFactory(option *providersOption) func(p makerIn) (makerOut
 
 			var driver = option.driver
 			if option.driver == nil {
-				driver, err = option.driverConstructor(DriverConstructorArgs{
-					Name:      "name",
-					Conf:      conf,
-					Logger:    p.Logger,
-					AppName:   p.AppName,
-					Env:       p.Env,
-					Populator: p.Populator,
-				})
+				driver, err = option.driverConstructor(
+					DriverConstructorArgs{
+						Name:      name,
+						Conf:      conf,
+						Logger:    p.Logger,
+						AppName:   p.AppName,
+						Env:       p.Env,
+						Populator: p.Populator,
+					},
+				)
 				if err != nil {
 					return di.Pair{}, err
 				}
