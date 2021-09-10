@@ -2,12 +2,11 @@ package queue
 
 import (
 	"github.com/DoNewsCode/core/contract"
-	"github.com/go-kit/kit/log"
 )
 
 type providersOption struct {
 	driver            Driver
-	driverConstructor func(args DriverConstructorArgs) (Driver, error)
+	driverConstructor func(args DriverArgs) (Driver, error)
 }
 
 // ProvidersOptionFunc is the type of functional providersOption for Providers. Use this type to change how Providers work.
@@ -24,18 +23,14 @@ func WithDriver(driver Driver) ProvidersOptionFunc {
 
 // WithDriverConstructor instructs the Providers to accept an alternative constructor for queue driver.
 // If the WithDriver option is set, this option becomes an no-op.
-func WithDriverConstructor(f func(args DriverConstructorArgs) (Driver, error)) ProvidersOptionFunc {
+func WithDriverConstructor(f func(args DriverArgs) (Driver, error)) ProvidersOptionFunc {
 	return func(options *providersOption) {
 		options.driverConstructor = f
 	}
 }
 
-// DriverConstructorArgs are arguments to construct the driver. See WithDriverConstructor.
-type DriverConstructorArgs struct {
+// DriverArgs are arguments to construct the driver. See WithDriverConstructor.
+type DriverArgs struct {
 	Name      string
-	Conf      Configuration
-	Logger    log.Logger
-	AppName   contract.AppName
-	Env       contract.Env
 	Populator contract.DIPopulator
 }

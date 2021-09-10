@@ -58,8 +58,8 @@ type ConsumableDispatcher interface {
 	Consume(ctx context.Context) error
 }
 
-// Configuration is the struct for queue configs.
-type Configuration struct {
+// configuration is the struct for queue configs.
+type configuration struct {
 	RedisName                      string `yaml:"redisName" json:"redisName"`
 	Parallelism                    int    `yaml:"parallelism" json:"parallelism"`
 	CheckQueueLengthIntervalSecond int    `yaml:"checkQueueLengthIntervalSecond" json:"checkQueueLengthIntervalSecond"`
@@ -73,11 +73,8 @@ type makerIn struct {
 	JobDispatcher   JobDispatcher       `optional:"true"`
 	EventDispatcher contract.Dispatcher `optional:"true"`
 	Logger          log.Logger
-	AppName         contract.AppName
-	Env             contract.Env
 	Gauge           Gauge                `optional:"true"`
 	Populator       contract.DIPopulator `optional:"true"`
-	Driver          Driver               `optional:"true"`
 }
 
 // makerOut is the di output JobFrom provideDispatcherFactory
@@ -99,7 +96,7 @@ func provideDispatcherFactory(option *providersOption) func(p makerIn) (makerOut
 	return func(p makerIn) (makerOut, error) {
 		var (
 			err        error
-			queueConfs map[string]Configuration
+			queueConfs map[string]configuration
 		)
 		err = p.Conf.Unmarshal("queue", &queueConfs)
 		if err != nil {
@@ -108,14 +105,14 @@ func provideDispatcherFactory(option *providersOption) func(p makerIn) (makerOut
 		factory := di.NewFactory(func(name string) (di.Pair, error) {
 			var (
 				ok   bool
-				conf Configuration
+				conf configuration
 			)
 			p := p
 			if conf, ok = queueConfs[name]; !ok {
 				if name != "default" {
-					return di.Pair{}, fmt.Errorf("queue Configuration %s not found", name)
+					return di.Pair{}, fmt.Errorf("queue configuration %s not found", name)
 				}
-				conf = Configuration{
+				conf = configuration{
 					Parallelism:                    runtime.NumCPU(),
 					CheckQueueLengthIntervalSecond: 0,
 				}
@@ -135,12 +132,8 @@ func provideDispatcherFactory(option *providersOption) func(p makerIn) (makerOut
 			var driver = option.driver
 			if option.driver == nil {
 				driver, err = option.driverConstructor(
-					DriverConstructorArgs{
+					DriverArgs{
 						Name:      name,
-						Conf:      conf,
-						Logger:    p.Logger,
-						AppName:   p.AppName,
-						Env:       p.Env,
 						Populator: p.Populator,
 					},
 				)
@@ -191,27 +184,41 @@ func (d makerOut) ProvideRunGroup(group *run.Group) {
 	}
 }
 
-func newDefaultDriver(args DriverConstructorArgs) (Driver, error) {
-	var maker otredis.Maker
+func newDefaultDriver(args DriverArgs) (Driver, error) {
+	var injected struct {
+		di.In
+
+		contract.AppName
+		contract.Env
+		contract.Logger
+		otredis.Maker
+		contract.ConfigUnmarshaler
+	}
+
 	if args.Populator == nil {
 		return nil, errors.New("the default driver requires setting the populator in DI container")
 	}
-	if err := args.Populator.Populate(&maker); err != nil {
-		return nil, fmt.Errorf("the default driver requires an otredis.Maker in DI container: %w", err)
+	if err := args.Populator.Populate(&injected); err != nil {
+		return nil, fmt.Errorf("missing dependency for the default queue driver: %w", err)
 	}
-	client, err := maker.Make(args.Conf.RedisName)
+	var redisName string
+	if err := injected.ConfigUnmarshaler.Unmarshal(fmt.Sprintf("queue.%s.redisName", injected.AppName), &redisName); err != nil {
+		return nil, fmt.Errorf("bad configuration: %w", err)
+	}
+
+	client, err := injected.Maker.Make(redisName)
 	if err != nil {
-		return nil, fmt.Errorf("the default driver requires the redis client called %s: %w", args.Conf.RedisName, err)
+		return nil, fmt.Errorf("the default driver requires the redis client called %s: %w", redisName, err)
 	}
 	return &RedisDriver{
-		Logger:      args.Logger,
+		Logger:      injected.Logger,
 		RedisClient: client,
 		ChannelConfig: ChannelConfig{
-			Delayed:  fmt.Sprintf("{%s:%s:%s}:delayed", args.AppName.String(), args.Env.String(), args.Name),
-			Failed:   fmt.Sprintf("{%s:%s:%s}:failed", args.AppName.String(), args.Env.String(), args.Name),
-			Reserved: fmt.Sprintf("{%s:%s:%s}:reserved", args.AppName.String(), args.Env.String(), args.Name),
-			Waiting:  fmt.Sprintf("{%s:%s:%s}:waiting", args.AppName.String(), args.Env.String(), args.Name),
-			Timeout:  fmt.Sprintf("{%s:%s:%s}:timeout", args.AppName.String(), args.Env.String(), args.Name),
+			Delayed:  fmt.Sprintf("{%s:%s:%s}:delayed", injected.AppName.String(), injected.Env.String(), args.Name),
+			Failed:   fmt.Sprintf("{%s:%s:%s}:failed", injected.AppName.String(), injected.Env.String(), args.Name),
+			Reserved: fmt.Sprintf("{%s:%s:%s}:reserved", injected.AppName.String(), injected.Env.String(), args.Name),
+			Waiting:  fmt.Sprintf("{%s:%s:%s}:waiting", injected.AppName.String(), injected.Env.String(), args.Name),
+			Timeout:  fmt.Sprintf("{%s:%s:%s}:timeout", injected.AppName.String(), injected.Env.String(), args.Name),
 		},
 	}, nil
 }
@@ -239,7 +246,7 @@ func provideConfig() configOut {
 	configs := []config.ExportedConfig{{
 		Owner: "queue",
 		Data: map[string]interface{}{
-			"queue": map[string]Configuration{
+			"queue": map[string]configuration{
 				"default": {
 					RedisName:                      "default",
 					Parallelism:                    runtime.NumCPU(),

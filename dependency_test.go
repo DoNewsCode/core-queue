@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DoNewsCode/core/config"
+	"github.com/DoNewsCode/core/contract"
 	"github.com/DoNewsCode/core/di"
 	"github.com/DoNewsCode/core/otredis"
 	"github.com/go-kit/kit/log"
@@ -23,13 +24,28 @@ func (m maker) Make(name string) (redis.UniversalClient, error) {
 type populator struct{}
 
 func (p populator) Populate(target interface{}) error {
-	*(target.(*otredis.Maker)) = maker{}
-	return nil
+	g := di.NewGraph()
+	g.Provide(func() contract.AppName {
+		return config.AppName("test")
+	})
+	g.Provide(func() contract.Env {
+		return config.Env("test")
+	})
+	g.Provide(func() log.Logger {
+		return log.NewNopLogger()
+	})
+	g.Provide(func() otredis.Maker {
+		return maker{}
+	})
+	g.Provide(func() contract.ConfigUnmarshaler {
+		return config.MapAdapter{"queue": map[string]interface{}{"default": map[string]interface{}{"redisName": "default"}}}
+	})
+	return di.IntoPopulator(g).Populate(target)
 }
 
 func TestProvideDispatcher(t *testing.T) {
 	out, err := provideDispatcherFactory(&providersOption{})(makerIn{
-		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]Configuration{
+		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]configuration{
 			"default": {
 				"default",
 				1,
@@ -44,8 +60,6 @@ func TestProvideDispatcher(t *testing.T) {
 		JobDispatcher: &SyncDispatcher{},
 		Populator:     populator{},
 		Logger:        log.NewNopLogger(),
-		AppName:       config.AppName("test"),
-		Env:           config.EnvTesting,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, out.DispatcherFactory)
@@ -92,7 +106,7 @@ func (m mockDriver) Retry(ctx context.Context, message *PersistedJob) error {
 
 func TestProvideDispatcher_withDriver(t *testing.T) {
 	out, err := provideDispatcherFactory(&providersOption{driver: mockDriver{}})(makerIn{
-		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]Configuration{
+		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]configuration{
 			"default": {
 				"default",
 				1,
@@ -106,8 +120,6 @@ func TestProvideDispatcher_withDriver(t *testing.T) {
 		}}),
 		JobDispatcher: &SyncDispatcher{},
 		Logger:        log.NewNopLogger(),
-		AppName:       config.AppName("test"),
-		Env:           config.EnvTesting,
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, out.DispatcherFactory)
