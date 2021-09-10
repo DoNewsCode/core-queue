@@ -37,7 +37,7 @@
 //    Decorate(s *PersistedJob)
 //  }
 //
-// The PersistentJob passed to the Decorate method contains the tunable configuration such as maximum retries.
+// The PersistentJob passed to the Decorate method contains the tunable Configuration such as maximum retries.
 //
 // No matter how you create a persisted Job, to fire it, send it though a dispatcher. The normal dispatcher in the
 // Jobs package won't work, as a queue implementation is required. Luckily, it is deadly simple to convert a standard
@@ -61,7 +61,7 @@
 //
 // Integrate
 //
-// The queue package exports configuration in this format:
+// The queue package exports Configuration in this format:
 //
 //  queue:
 //    default:

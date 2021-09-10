@@ -29,7 +29,7 @@ func (p populator) Populate(target interface{}) error {
 
 func TestProvideDispatcher(t *testing.T) {
 	out, err := provideDispatcherFactory(&providersOption{})(makerIn{
-		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]configuration{
+		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]Configuration{
 			"default": {
 				"default",
 				1,
@@ -92,7 +92,7 @@ func (m mockDriver) Retry(ctx context.Context, message *PersistedJob) error {
 
 func TestProvideDispatcher_withDriver(t *testing.T) {
 	out, err := provideDispatcherFactory(&providersOption{driver: mockDriver{}})(makerIn{
-		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]configuration{
+		Conf: config.WithAccessor(config.MapAdapter{"queue": map[string]Configuration{
 			"default": {
 				"default",
 				1,

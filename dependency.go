@@ -58,7 +58,8 @@ type ConsumableDispatcher interface {
 	Consume(ctx context.Context) error
 }
 
-type configuration struct {
+// Configuration is the struct for queue configs.
+type Configuration struct {
 	RedisName                      string `yaml:"redisName" json:"redisName"`
 	Parallelism                    int    `yaml:"parallelism" json:"parallelism"`
 	CheckQueueLengthIntervalSecond int    `yaml:"checkQueueLengthIntervalSecond" json:"checkQueueLengthIntervalSecond"`
@@ -76,6 +77,7 @@ type makerIn struct {
 	Env             contract.Env
 	Gauge           Gauge                `optional:"true"`
 	Populator       contract.DIPopulator `optional:"true"`
+	Driver          Driver               `optional:"true"`
 }
 
 // makerOut is the di output JobFrom provideDispatcherFactory
@@ -97,7 +99,7 @@ func provideDispatcherFactory(option *providersOption) func(p makerIn) (makerOut
 	return func(p makerIn) (makerOut, error) {
 		var (
 			err        error
-			queueConfs map[string]configuration
+			queueConfs map[string]Configuration
 		)
 		err = p.Conf.Unmarshal("queue", &queueConfs)
 		if err != nil {
@@ -106,14 +108,14 @@ func provideDispatcherFactory(option *providersOption) func(p makerIn) (makerOut
 		factory := di.NewFactory(func(name string) (di.Pair, error) {
 			var (
 				ok   bool
-				conf configuration
+				conf Configuration
 			)
 			p := p
 			if conf, ok = queueConfs[name]; !ok {
 				if name != "default" {
-					return di.Pair{}, fmt.Errorf("queue configuration %s not found", name)
+					return di.Pair{}, fmt.Errorf("queue Configuration %s not found", name)
 				}
-				conf = configuration{Parallelism: runtime.NumCPU(), CheckQueueLengthIntervalSecond: 0}
+				conf = Configuration{Parallelism: runtime.NumCPU(), CheckQueueLengthIntervalSecond: 0}
 			}
 
 			if p.JobDispatcher == nil {
@@ -232,7 +234,7 @@ func provideConfig() configOut {
 	configs := []config.ExportedConfig{{
 		Owner: "queue",
 		Data: map[string]interface{}{
-			"queue": map[string]configuration{
+			"queue": map[string]Configuration{
 				"default": {
 					RedisName:                      "default",
 					Parallelism:                    runtime.NumCPU(),

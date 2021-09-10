@@ -33,7 +33,7 @@ func WithDriverConstructor(f func(args DriverConstructorArgs) (Driver, error)) P
 // DriverConstructorArgs are arguments to construct the driver. See WithDriverConstructor.
 type DriverConstructorArgs struct {
 	Name      string
-	Conf      configuration
+	Conf      Configuration
 	Logger    log.Logger
 	AppName   contract.AppName
 	Env       contract.Env
