@@ -201,6 +201,13 @@ func newDefaultDriver(args DriverArgs) (Driver, error) {
 	if err := args.Populator.Populate(&injected); err != nil {
 		return nil, fmt.Errorf("missing dependency for the default queue driver: %w", err)
 	}
+	driver, err := driverFromDI(args.Populator)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching default driver from DI: %w", err)
+	}
+	if driver != nil {
+		return driver, nil
+	}
 	var redisName string
 	if err := injected.ConfigUnmarshaler.Unmarshal(fmt.Sprintf("queue.%s.redisName", injected.AppName), &redisName); err != nil {
 		return nil, fmt.Errorf("bad configuration: %w", err)
@@ -256,4 +263,16 @@ func provideConfig() configOut {
 		},
 	}}
 	return configOut{Config: configs}
+}
+
+func driverFromDI(populator contract.DIPopulator) (Driver, error) {
+	var injected struct {
+		di.In
+		Driver `optional:"true"`
+	}
+	err := populator.Populate(&injected)
+	if err != nil {
+		return nil, err
+	}
+	return injected.Driver, nil
 }

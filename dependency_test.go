@@ -133,3 +133,23 @@ func TestProvideConfigs(t *testing.T) {
 	c := provideConfig()
 	assert.NotEmpty(t, c.Config)
 }
+
+type driverPopulator struct{}
+
+func (d driverPopulator) Populate(target interface{}) error {
+	graph := di.NewGraph()
+	graph.Provide(func() Driver {
+		return mockDriver{}
+	})
+	di.IntoPopulator(graph).Populate(target)
+	return nil
+}
+
+func TestDriverFromDI(t *testing.T) {
+	driver, err := newDefaultDriver(DriverArgs{
+		Name:      "",
+		Populator: driverPopulator{},
+	})
+	assert.NoError(t, err)
+	assert.IsType(t, mockDriver{}, driver)
+}
