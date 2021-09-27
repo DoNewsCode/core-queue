@@ -12,6 +12,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/dig"
 )
 
 type maker struct{}
@@ -24,7 +25,7 @@ func (m maker) Make(name string) (redis.UniversalClient, error) {
 type populator struct{}
 
 func (p populator) Populate(target interface{}) error {
-	g := di.NewGraph()
+	g := dig.New()
 	g.Provide(func() contract.AppName {
 		return config.AppName("test")
 	})
@@ -137,7 +138,7 @@ func TestProvideConfigs(t *testing.T) {
 type driverPopulator struct{}
 
 func (d driverPopulator) Populate(target interface{}) error {
-	graph := di.NewGraph()
+	graph := dig.New()
 	graph.Provide(func() Driver {
 		return mockDriver{}
 	})
