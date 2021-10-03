@@ -6,7 +6,7 @@ require (
 	github.com/DoNewsCode/core v0.10.0
 	github.com/go-kit/kit v0.12.0
 	github.com/go-redis/redis/v8 v8.11.3
-	github.com/knadh/koanf v1.2.3
+	github.com/knadh/koanf v1.2.4
 	github.com/oklog/run v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
