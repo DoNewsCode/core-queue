@@ -43,8 +43,8 @@ github.com/ClickHouse/clickhouse-go v1.4.3/go.mod h1:EaI/sW7Azgz9UATzd5ZdZHRUhHg
 github.com/ClickHouse/clickhouse-go v1.4.5 h1:FfhyEnv6/BaWldyjgT2k4gDDmeNwJ9C4NbY/MXxJlXk=
 github.com/ClickHouse/clickhouse-go v1.4.5/go.mod h1:EaI/sW7Azgz9UATzd5ZdZHRUhHgv5+JMS9NSr2smCJI=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
-github.com/DoNewsCode/core v0.10.0 h1:2NUixpVcEjpT++8EiLSOu+w0ew4J5grBDZu8Zv1qe1U=
-github.com/DoNewsCode/core v0.10.0/go.mod h1:Kna15zPRiR+7iEzGyTHX83fAEjH8gcqJa91UbDa6Wuo=
+github.com/DoNewsCode/core v0.10.1 h1:VsOWgpycfjQ3lqsn9iimakJdwiyXCi1cZYAmFuFJX9E=
+github.com/DoNewsCode/core v0.10.1/go.mod h1:Kna15zPRiR+7iEzGyTHX83fAEjH8gcqJa91UbDa6Wuo=
 github.com/HdrHistogram/hdrhistogram-go v1.1.0/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
 github.com/HdrHistogram/hdrhistogram-go v1.1.2/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
 github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8Leh48TZaKVeNIfJntJ2wa0=
@@ -470,8 +470,8 @@ github.com/klauspost/compress v1.9.8/go.mod h1:RyIbtBH6LamlWaDj8nUwkbUhJ87Yi3uG0
 github.com/klauspost/compress v1.13.4/go.mod h1:8dP1Hq4DHOhN9w426knH3Rhby4rFm6D8eO+e+Dq5Gzg=
 github.com/klauspost/compress v1.13.6/go.mod h1:/3/Vjq9QcHkK5uEr5lBEmyoZ1iFhe47etQ6QUkpK6sk=
 github.com/knadh/koanf v0.15.0/go.mod h1:Ut3d4JaTRZYfO5a0wdYIGE+oyGaGFo4vXQ3ZvaSWxNc=
-github.com/knadh/koanf v1.2.3 h1:2Rkr0YhhYk+4QEOm800Q3Pu0Wi87svTxM6uuEb4WhYw=
-github.com/knadh/koanf v1.2.3/go.mod h1:xpPTwMhsA/aaQLAilyCCqfpEiY1gpa160AiCuWHJUjY=
+github.com/knadh/koanf v1.2.4 h1:AQYoGbNwphHd63E//SkDkqEGcogARxGspHWqoJw6O8k=
+github.com/knadh/koanf v1.2.4/go.mod h1:xpPTwMhsA/aaQLAilyCCqfpEiY1gpa160AiCuWHJUjY=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
