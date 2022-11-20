@@ -1,6 +1,6 @@
 module github.com/DoNewsCode/core-queue
 
-go 1.16
+go 1.19
 
 require (
 	github.com/DoNewsCode/core v0.11.0
