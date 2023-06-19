@@ -3,10 +3,10 @@ module github.com/DoNewsCode/core-queue
 go 1.16
 
 require (
-	github.com/DoNewsCode/core v0.11.0
+	github.com/DoNewsCode/core v0.12.3
 	github.com/go-kit/kit v0.12.0
-	github.com/go-redis/redis/v8 v8.11.3
-	github.com/knadh/koanf v1.3.3
+	github.com/go-redis/redis/v8 v8.11.4
+	github.com/knadh/koanf v1.4.0
 	github.com/oklog/run v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
